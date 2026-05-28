@@ -1,0 +1,46 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local IDE files
+.vscode/
+.idea/
+.vs/
+
+# Data, images and generated visual outputs
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tif
+*.tiff
+*.gif
+*.json
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.pdf
+overlays/
+overview/
+probability_overlays/
+probability_range_overlays/
+label_pred_overlays/
+zone_probability_labels/
+
+# Model artifacts and large binaries
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.onnx
+
+# Project data/result folders kept local
+TMJ_Xrays/
+TMJ_seg/
+TMJ_clas/
+TMD_DiagnosisTool/
+normal2/
+code_archive_seg/
+seg_code_useful/
