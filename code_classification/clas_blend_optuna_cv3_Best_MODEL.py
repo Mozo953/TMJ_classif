@@ -220,6 +220,13 @@ def train_base_model(
     device: torch.device,
     checkpoint_path: Path,
 ) -> np.ndarray:
+    verbose = getattr(args, "verbose", False)
+    if verbose:
+        print(
+            f"[base] model={model_name} train={len(train_samples)} valid={len(valid_samples)} "
+            f"epochs={params['epochs']} image_size={params['image_size']} batch={params['batch_size']}",
+            flush=True,
+        )
     model = make_model(model_name, params["base_channels"], params["dropout"]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
     criterion = nn.CrossEntropyLoss(label_smoothing=params["label_smoothing"])
@@ -229,8 +236,10 @@ def train_base_model(
 
     best_f1 = -1.0
     best_state = None
-    for _epoch in range(1, params["epochs"] + 1):
+    for epoch in range(1, params["epochs"] + 1):
         model.train()
+        running_loss = 0.0
+        seen = 0
         for x, y in train_loader:
             x = x.to(device)
             y = y.to(device)
@@ -240,6 +249,8 @@ def train_base_model(
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+            running_loss += loss.item() * x.size(0)
+            seen += x.size(0)
 
         probs, y_true = predict_proba(model, valid_loader, device)
         y_pred = probs.argmax(axis=1)
@@ -247,6 +258,12 @@ def train_base_model(
         if f1 > best_f1:
             best_f1 = f1
             best_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+        if verbose and (epoch == 1 or epoch == params["epochs"] or epoch % max(params["epochs"] // 5, 1) == 0):
+            print(
+                f"[base] model={model_name} epoch={epoch:03d}/{params['epochs']} "
+                f"loss={running_loss / max(seen, 1):.4f} valid_macro_f1={f1:.4f} best={best_f1:.4f}",
+                flush=True,
+            )
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -280,13 +297,23 @@ def train_oof_base_models(
     cv = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=args.seed)
     oof_by_model = []
     for model_name in BASE_MODEL_NAMES:
+        if getattr(args, "verbose", False):
+            print(f"[oof] start model={model_name} folds={args.folds}", flush=True)
         oof = np.zeros((len(samples), len(CLASS_NAMES)), dtype=np.float32)
         for fold, (train_idx, valid_idx) in enumerate(cv.split(np.arange(len(samples)), labels), start=1):
+            if getattr(args, "verbose", False):
+                print(
+                    f"[oof] model={model_name} fold={fold}/{args.folds} "
+                    f"train={len(train_idx)} valid={len(valid_idx)}",
+                    flush=True,
+                )
             train_samples = [samples[i] for i in train_idx]
             valid_samples = [samples[i] for i in valid_idx]
             ckpt = trial_dir / "base_models" / model_name / f"fold_{fold:02d}.pt"
             oof[valid_idx] = train_base_model(model_name, train_samples, valid_samples, args, params, device, ckpt)
         np.save(trial_dir / f"oof_{model_name}.npy", oof)
+        if getattr(args, "verbose", False):
+            print(f"[oof] done model={model_name}", flush=True)
         oof_by_model.append(oof)
     return np.concatenate(oof_by_model, axis=1)
 
@@ -375,6 +402,8 @@ def objective(trial: optuna.Trial, samples: list[MaskSample], labels: np.ndarray
     }
     trial_dir = args.output_dir / f"trial_{trial.number:03d}"
     trial_dir.mkdir(parents=True, exist_ok=True)
+    if getattr(args, "verbose", False):
+        print(f"[trial {trial.number:03d}] params={params}", flush=True)
     with (trial_dir / "base_params.json").open("w", encoding="utf-8") as f:
         json.dump(params, f, indent=2)
 
@@ -396,6 +425,8 @@ def objective(trial: optuna.Trial, samples: list[MaskSample], labels: np.ndarray
     trial.set_user_attr("trial_dir", str(trial_dir))
     for key, value in metrics.items():
         trial.set_user_attr(key, value)
+    if getattr(args, "verbose", False):
+        print(f"[trial {trial.number:03d}] score_macro_f1={score:.4f} metrics={metrics}", flush=True)
     return score
 
 
@@ -427,6 +458,7 @@ def main() -> None:
     parser.add_argument("--study-name", default="blend_resnets_optuna_cv3")
     parser.add_argument("--storage", default=None, help="Optional Optuna storage URL, e.g. sqlite:///study.db")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     if args.smoke:
@@ -443,6 +475,13 @@ def main() -> None:
     samples = collect_samples(args.mask_root)
     labels = np.array([sample.label for sample in samples], dtype=np.int64)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.verbose:
+        counts = {name: int((labels == idx).sum()) for idx, name in enumerate(CLASS_NAMES)}
+        print(
+            f"[start] samples={len(samples)} class_counts={counts} folds={args.folds} "
+            f"trials={args.trials} device={device} output_dir={args.output_dir}",
+            flush=True,
+        )
 
     with (args.output_dir / "dataset.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
