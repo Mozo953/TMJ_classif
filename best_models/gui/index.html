@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TMJ Best Model GUI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>TMJ 3-class classifier</h1>
+      <p>Best model sans leakage: blend simple CNN + RF requested clinical.</p>
+    </div>
+    <div class="status" id="status">Chargement...</div>
+  </header>
+
+  <main>
+    <section class="metrics">
+      <div class="metric">
+        <span>Cases matchés</span>
+        <strong id="nRows">-</strong>
+      </div>
+      <div class="metric">
+        <span>Accuracy</span>
+        <strong id="accuracy">-</strong>
+      </div>
+      <div class="metric">
+        <span>Balanced accuracy</span>
+        <strong id="balancedAccuracy">-</strong>
+      </div>
+      <div class="metric">
+        <span>Macro-F1</span>
+        <strong id="macroF1">-</strong>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <aside class="panel controls">
+        <h2>Blend</h2>
+        <label for="cnnWeight">Poids CNN</label>
+        <div class="sliderRow">
+          <input id="cnnWeight" type="range" min="0" max="1" step="0.05" value="0.5">
+          <output id="cnnWeightText">0.50</output>
+        </div>
+        <label for="rfWeight">Poids RF requested clinical</label>
+        <input id="rfWeight" type="text" value="0.50" readonly>
+
+        <div class="buttonRow">
+          <button id="resetBest">Revenir au best</button>
+          <button id="exportCsv">Exporter CSV</button>
+        </div>
+
+        <h2>Filtre</h2>
+        <label for="caseFilter">Case ID</label>
+        <input id="caseFilter" type="search" placeholder="ex: 35">
+        <label for="labelFilter">Classe prédite</label>
+        <select id="labelFilter">
+          <option value="">Toutes</option>
+          <option value="Mild">Mild</option>
+          <option value="Normal">Normal</option>
+          <option value="Severe">Severe</option>
+        </select>
+
+        <h2>Rappel</h2>
+        <p class="note">Le RF utilise uniquement les variables requested clinical. Les colonnes diagnostic, diag_* et condyle sont exclues.</p>
+      </aside>
+
+      <section class="panel chartPanel">
+        <div class="panelHead">
+          <h2>Accuracy selon poids CNN</h2>
+          <span id="bestLine">Best: CNN 0.50 / RF 0.50</span>
+        </div>
+        <canvas id="weightChart" width="980" height="320"></canvas>
+      </section>
+    </section>
+
+    <section class="panel tablePanel">
+      <div class="panelHead">
+        <h2>Prédictions</h2>
+        <span id="shownRows">-</span>
+      </div>
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Case ID</th>
+              <th>True</th>
+              <th>Pred</th>
+              <th>Blend Mild</th>
+              <th>Blend Normal</th>
+              <th>Blend Severe</th>
+              <th>CNN Mild</th>
+              <th>CNN Normal</th>
+              <th>CNN Severe</th>
+              <th>RF Mild</th>
+              <th>RF Normal</th>
+              <th>RF Severe</th>
+            </tr>
+          </thead>
+          <tbody id="predBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
