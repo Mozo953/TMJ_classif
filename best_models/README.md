@@ -1,53 +1,49 @@
-# Best Models - TMJ 3-class Classification
+# Best models and validated outputs
 
-This folder contains the latest validated non-leaky setup.
+This folder stores trained checkpoints, OOF predictions, reports and selected model artifacts.
 
-## Final selected model
+## Current reference
 
-The selected model is a simple probability blender:
+The current CNN reference model is:
 
-`0.50 * CNN + 0.50 * RF requested clinical`
-
-Selection criterion: best OOF CV=5 accuracy on the strict image-clinical matched cohort.
-
-## Performance on matched cohort
-
-- Matched cases: 150
-- Labels: Mild, Normal, Severe
-- Accuracy: 0.7200
-- Balanced accuracy: 0.7087
-- Macro-F1: 0.7039
-
-## Folder structure
-
-- `cnn_best/`: best CNN ensemble artifacts from `trial_020`, including base fold weights.
-- `rf_requested_clinical/`: RF trained only with requested clinical variables, no diagnosis-derived features.
-- `blender_50_50/`: final blend configuration, OOF probability files, and reproducible blend script.
-- `reports/`: summaries, label checks, excluded cases, and performance graph.
-
-## Leakage control
-
-Excluded from the RF:
-
-- `diagnosis`, `diagnosis1`, `diagnosis2`, `diagnosis3`
-- all `diag_*` columns
-- `condyle`
-
-Included in the RF:
-
-- demographics
-- pain intensity and pain areas
-- joint noises and tenderness
-- mouth opening / movement measures
-- mandibular deviation / dislocation
-- dental history
-- grouped medical history
-
-## Reproduce the final OOF blend
-
-```powershell
-python best_models\blender_50_50\apply_blender_50_50.py `
-  --cnn-probs best_models\blender_50_50\cnn_probs_image_matched_only.csv `
-  --rf-probs best_models\rf_requested_clinical\rf_cv5_oof_predictions.csv `
-  --output best_models\blender_50_50\final_50_50_oof_predictions.csv
+```text
+best_actual_model_resnet14/
 ```
+
+The user explicitly corrected the reference model to ResNet14. Older folders such as `best_actual_model_resnet20/` are kept for traceability but should not be treated as the current best CNN.
+
+## Main folders
+
+| Folder | Purpose |
+|---|---|
+| `best_actual_model_resnet14/` | Current selected CNN model and all ResNet14 interpretability analyses |
+| `cnn_best_retrain_check/` | Retrained base CNNs, OOF probabilities, calibration metrics |
+| `cnn_best/` | Earlier CNN ensemble/blender artifacts and interpretability reports |
+| `cnn_indiv_condyle_fossa_blender/` | Condyle-only and fossa-only CNN branch experiments |
+| `individual_resnets_cv3_oof/` | Individual ResNet20/ResNet26 CV3 experiments |
+| `logreg_meta_3models/` | Logistic regression meta-learner combining model probabilities |
+| `logreg_meta_3models_plus_clinical/` | Model probabilities plus tabular/clinical data |
+| `logreg_dinov2_plus_clinical/` | DINOv2 plus clinical/tabular data |
+| `rf_requested_clinical/` | Random forest using requested clinical variables |
+| `reports/` | Additional comparison reports and error analyses |
+
+## Calibration results
+
+Calibration files are located at:
+
+```text
+best_models/cnn_best_retrain_check/calibration_metrics/
+```
+
+| Model | Accuracy | ECE 10 bins | Brier multiclass |
+|---|---:|---:|---:|
+| ResNet14 | 0.6867 | 0.1693 | 0.4701 |
+| ResNet20 | 0.6533 | 0.1072 | 0.4549 |
+| ResNet26 | 0.6733 | 0.1259 | 0.4417 |
+| Small CNN | 0.6800 | 0.1349 | 0.4412 |
+| Depthwise CNN | 0.6600 | 0.1959 | 0.5312 |
+| Blender RF | 0.6333 | 0.0507 | 0.4156 |
+
+## Historical note
+
+There are older experiments combining CNN probabilities with Random Forest clinical models. Those are preserved, but the current CNN reference for interpretability and counterfactual analyses is ResNet14 alone.
