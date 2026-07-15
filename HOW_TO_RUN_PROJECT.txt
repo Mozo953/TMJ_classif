@@ -1,0 +1,150 @@
+HOW TO RUN THE TMJ/TMD PROJECT
+==============================
+
+Project root
+------------
+C:\Users\sadmin\Desktop\mozo
+
+
+Python environment
+------------------
+A `.venv` environment has been created here:
+
+    C:\Users\sadmin\Desktop\mozo\.venv
+
+Activate it from PowerShell:
+
+    cd C:\Users\sadmin\Desktop\mozo
+    .\.venv\Scripts\Activate.ps1
+
+If PowerShell blocks activation, run:
+
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    .\.venv\Scripts\Activate.ps1
+
+Important:
+The `.venv` was created with `--system-site-packages`, so it reuses the dependencies already installed
+in the working Python environment. The heavy PyTorch/CUDA/timm packages are already available in the
+Conda environment used for the previous experiments.
+
+Recommended fallback if `.venv` is slow when importing PyTorch:
+
+    conda activate aidentistry
+    cd C:\Users\sadmin\Desktop\mozo
+
+
+Dependencies
+------------
+Short dependency list:
+
+    requirements_project.txt
+
+Full freeze of the environment used for the experiments:
+
+    requirements_current_environment.txt
+
+Install dependencies in a fresh environment if needed:
+
+    python -m pip install -r requirements_project.txt
+
+
+1) Run segmentation only
+------------------------
+This command segments the images in `TMJ_clas` with UNet++ fold 2 and applies the post-processing:
+fossa threshold 0.95 and top-2 connected components for condyle/fossa.
+
+    python main_segmentation.py
+
+Default outputs:
+
+    C:\Users\sadmin\Desktop\mozo\TMJ_clas\pred_all_images_fold02_fossa_erosion_top2_largest\masks
+    C:\Users\sadmin\Desktop\mozo\TMJ_clas\pred_all_images_fold02_fossa_erosion_top2_largest\overlays
+
+
+2) Run ResNet14 only, historical best pipeline
+----------------------------------------------
+This command uses the old 150-case post-processed segmentation masks by default:
+
+    C:\Users\sadmin\Desktop\mozo\TMJ_clas\pred_fold02_fossa_erosion_top2_largest\masks
+
+Command:
+
+    python main_resnet14.py
+
+Default output:
+
+    C:\Users\sadmin\Desktop\mozo\best_models\reproduce_resnet14_old150
+
+Historical ResNet14 reference performance:
+
+    Accuracy          = 0.6867
+    Balanced accuracy = 0.6544
+    Macro F1          = 0.6255
+
+Model input:
+
+    one-hot segmentation mask, 3 x 160 x 160
+    channel 0 = background
+    channel 1 = condyle
+    channel 2 = fossa
+
+
+3) Run DINOv2
+-------------
+DINOv2 uses raw OPG images, not segmentation masks.
+Preprocessing: aspect-ratio-preserving resize + padding to 512 x 512.
+
+Command:
+
+    python main_dinov2.py
+
+Default output:
+
+    C:\Users\sadmin\Desktop\mozo\code_classification\dinov2_tmd_experiment\outputs_dinov2_cv3_reproduce_old150
+
+Historical DINOv2 reference performance:
+
+    Accuracy          = 0.7467
+    Balanced accuracy = 0.7389
+    Macro F1          = 0.7407
+
+
+4) Run the full RF + ResNet14 + blender pipeline
+------------------------------------------------
+Recommended fast version: reuse the saved OOF predictions from ResNet14 and the tabular RF,
+then apply the validated weighted probability blender.
+
+    python main_complete.py
+
+Output:
+
+    C:\Users\sadmin\Desktop\mozo\outputs\main_complete_reference_blender\final_blender_predictions.csv
+
+Historical best blender reference performance:
+
+    ResNet14 + tabular RF
+    Weights           = 0.70 ResNet14 / 0.30 RF
+    Accuracy          = 0.7533
+    Balanced accuracy = 0.7341
+    Macro F1          = 0.7245
+
+To retrain ResNet14 before applying the blender:
+
+    python main_complete.py --retrain-resnet14
+
+Note:
+The tabular RF uses the validated OOF predictions stored here:
+
+    C:\Users\sadmin\Desktop\mozo\best_models\rf_requested_clinical\rf_cv5_oof_predictions.csv
+
+
+5) Main files created
+---------------------
+
+    main_segmentation.py
+    main_resnet14.py
+    main_dinov2.py
+    main_complete.py
+    requirements_project.txt
+    requirements_current_environment.txt
+    HOW_TO_RUN_PROJECT.txt

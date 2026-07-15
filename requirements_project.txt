@@ -1,0 +1,17 @@
+albumentations
+joblib
+matplotlib
+numpy
+opencv-python
+openpyxl
+optuna
+pandas
+pillow
+scikit-learn
+scipy
+seaborn
+timm
+torch
+torchvision
+tqdm
+transformers

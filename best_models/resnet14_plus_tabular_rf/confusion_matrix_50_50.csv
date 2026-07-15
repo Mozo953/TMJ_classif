@@ -1,0 +1,4 @@
+,Pred_Mild,Pred_Normal,Pred_Severe
+True_Mild,44,1,12
+True_Normal,0,50,0
+True_Severe,25,2,16
