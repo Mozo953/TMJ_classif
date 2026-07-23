@@ -130,21 +130,49 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cnn_probs = Path(args.cnn_probs)
+    rf_probs = Path(args.rf_probs)
     if args.retrain_resnet14:
         resnet_out = output_dir / "resnet14_retrained"
         run(
             [
                 sys.executable,
-            str(ROOT / "main_resnet14.py"),
+                str(ROOT / "main_resnet14.py"),
                 "--output-dir",
                 str(resnet_out),
             ]
         )
         cnn_probs = resnet_out / "resnet14" / "oof_predictions.csv"
+    if not cnn_probs.exists():
+        raise FileNotFoundError(
+            "Image/CNN probability file is missing.\n"
+            f"Expected:\n  {cnn_probs}\n\n"
+            "Fix options:\n"
+            "  1) Run ResNet14 first:\n"
+            "     python main_complete.py --retrain-resnet14\n\n"
+            "  2) Or pass an existing probability CSV:\n"
+            "     python main_complete.py --cnn-probs <path>\n"
+        )
+    if not rf_probs.exists():
+        probe = pd.read_csv(cnn_probs, nrows=1)
+        has_rf_columns = all(f"rf_prob_{label}" in probe.columns for label in LABELS)
+        if has_rf_columns:
+            print(
+                f"[complete] RF probability file not found: {rf_probs}\n"
+                f"[complete] using RF columns already present in: {cnn_probs}",
+                flush=True,
+            )
+            rf_probs = cnn_probs
+        else:
+            raise FileNotFoundError(
+                "RF probability file is missing.\n"
+                f"Expected:\n  {rf_probs}\n\n"
+                "Pass a RF OOF probability CSV containing Case ID + rf_prob_Mild/rf_prob_Normal/rf_prob_Severe:\n"
+                "  python main_complete.py --rf-probs <path>\n"
+            )
 
     apply_weighted_blender(
         image_probs_path=cnn_probs,
-        rf_probs_path=Path(args.rf_probs),
+        rf_probs_path=rf_probs,
         output_path=output_dir / "final_blender_predictions.csv",
     )
 

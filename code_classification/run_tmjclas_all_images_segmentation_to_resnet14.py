@@ -5,6 +5,7 @@ import csv
 import json
 import random
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +53,16 @@ from clas_blend_optuna_cv3_Best_MODEL import MaskDataset  # noqa: E402
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 DISPLAY_ORDER = ["normal", "mild", "severe"]
+DEFAULT_RESNET14_PARAMS = {
+    "epochs": 45,
+    "image_size": 160,
+    "batch_size": 4,
+    "base_channels": 16,
+    "lr": 0.001498958154469183,
+    "weight_decay": 0.0002413655863489142,
+    "dropout": 0.07864781233782388,
+    "label_smoothing": 0.04306671235119111,
+}
 PRED_COLORS = {
     1: (255, 0, 0, 175),      # condyle
     2: (255, 150, 0, 195),    # glenoid fossa
@@ -136,7 +147,67 @@ def run_segmentation(args: argparse.Namespace) -> Path:
     overlays_root.mkdir(parents=True, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, checkpoint = load_model(checkpoint_path(args.seg_run_dir, args.inference_fold), device)
+    ckpt_path = checkpoint_path(args.seg_run_dir, args.inference_fold)
+    if not ckpt_path.exists():
+        if args.train_segmentation_if_missing:
+            print(
+                f"[seg] Missing checkpoint: {ckpt_path}\n"
+                f"[seg] Training segmentation run first into: {args.seg_run_dir}",
+                flush=True,
+            )
+            train_cmd = [
+                sys.executable,
+                str(SEG_ROOT / "seg_cv_best.py"),
+                "--data-root",
+                str(args.data_root),
+                "--output-dir",
+                str(args.seg_run_dir),
+                "--folds",
+                str(args.seg_train_folds),
+                "--epochs",
+                str(args.seg_train_epochs),
+                "--batch-size",
+                str(args.seg_train_batch_size),
+                "--image-size",
+                str(args.seg_image_size),
+                "--base-channels",
+                str(args.seg_train_base_channels),
+                "--line-thickness",
+                str(args.seg_train_line_thickness),
+                "--crop-x-fraction",
+                str(args.crop_x_fraction),
+                "--crop-y-fraction",
+                str(args.crop_y_fraction),
+                "--lr",
+                str(args.seg_train_lr),
+                "--dice-loss-weight",
+                str(args.seg_train_dice_loss_weight),
+                "--boundary-loss-weight",
+                str(args.seg_train_boundary_loss_weight),
+                "--seed",
+                str(args.seed),
+                "--num-workers",
+                str(args.num_workers),
+            ]
+            if args.seg_train_fixed_fossa_threshold is not None:
+                train_cmd.extend(["--fixed-fossa-threshold", str(args.seg_train_fixed_fossa_threshold)])
+            if args.seg_train_split_source_dir is not None:
+                train_cmd.extend(["--split-source-dir", str(args.seg_train_split_source_dir)])
+            print("$ " + " ".join(train_cmd), flush=True)
+            subprocess.run(train_cmd, cwd=str(PROJECT_ROOT), check=True)
+        if not ckpt_path.exists():
+            raise FileNotFoundError(
+                "Segmentation checkpoint is missing.\n"
+                f"Expected checkpoint:\n  {ckpt_path}\n\n"
+                "Fix options:\n"
+                "  1) Train it first:\n"
+                "     python main_segmentation.py --train-if-missing\n\n"
+                "  2) Or pass an existing run dir:\n"
+                "     python main_segmentation.py --seg-run-dir <path-to-unetpp-run>\n\n"
+                "  3) Or if you already have masks, skip segmentation in the full pipeline:\n"
+                "     python code_classification/run_tmjclas_all_images_segmentation_to_resnet14.py --skip-segmentation --seg-output-dir <dir-containing-masks>\n"
+            )
+    model, checkpoint = load_model(ckpt_path, device)
     ckpt_args = checkpoint.get("args", {})
     image_size = int(ckpt_args.get("image_size", args.seg_image_size))
     fossa_threshold = float(checkpoint.get("best_fossa_threshold", args.fossa_threshold))
@@ -349,8 +420,16 @@ def train_base_model_balanced(
 
 
 def run_resnet14_cv(args: argparse.Namespace, mask_root: Path) -> Path:
-    with args.base_params_path.open("r", encoding="utf-8") as f:
-        params = json.load(f)
+    if args.base_params_path.exists():
+        with args.base_params_path.open("r", encoding="utf-8") as f:
+            params = json.load(f)
+    else:
+        params = DEFAULT_RESNET14_PARAMS.copy()
+        print(
+            f"[cls] base params file not found: {args.base_params_path}\n"
+            "[cls] using built-in ResNet14 reference parameters instead.",
+            flush=True,
+        )
     if args.epochs is not None:
         params["epochs"] = args.epochs
     params["image_size"] = args.classification_image_size
@@ -448,6 +527,21 @@ def main() -> None:
     parser.add_argument("--skip-classification", action="store_true")
     parser.add_argument("--balanced-training", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--train-segmentation-if-missing",
+        action="store_true",
+        help="If the requested UNet++ checkpoint is missing, train code_segmentation/seg_cv_best.py before inference.",
+    )
+    parser.add_argument("--seg-train-folds", type=int, default=5)
+    parser.add_argument("--seg-train-epochs", type=int, default=50)
+    parser.add_argument("--seg-train-batch-size", type=int, default=2)
+    parser.add_argument("--seg-train-base-channels", type=int, default=16)
+    parser.add_argument("--seg-train-line-thickness", type=int, default=11)
+    parser.add_argument("--seg-train-lr", type=float, default=1e-3)
+    parser.add_argument("--seg-train-dice-loss-weight", type=float, default=1.0)
+    parser.add_argument("--seg-train-boundary-loss-weight", type=float, default=0.1)
+    parser.add_argument("--seg-train-fixed-fossa-threshold", type=float, default=None)
+    parser.add_argument("--seg-train-split-source-dir", type=Path, default=None)
     args = parser.parse_args()
 
     seed_everything(args.seed)

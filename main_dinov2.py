@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+import torch
 
 
 ROOT = Path(__file__).resolve().parent
@@ -31,14 +32,33 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
+
+    data_dir = Path(args.data_dir)
+    if not data_dir.exists():
+        fallback = ROOT / "TMJ_clas"
+        if fallback.exists():
+            print(
+                f"[DINOv2] data dir not found: {data_dir}\n"
+                f"[DINOv2] falling back to: {fallback}",
+                flush=True,
+            )
+            data_dir = fallback
+        else:
+            raise FileNotFoundError(
+                "DINOv2 data directory is missing.\n"
+                f"Expected default:\n  {data_dir}\n\n"
+                "Pass a dataset directory containing normal/mild/severe folders:\n"
+                "  python main_dinov2.py --data-dir <path-to-dataset>\n"
+            )
 
     run(
         [
             sys.executable,
             str(ROOT / "code_classification" / "dinov2_tmd_experiment" / "dinov2_tmd_cv.py"),
             "--data-dir",
-            args.data_dir,
+            str(data_dir),
             "--output-dir",
             args.output_dir,
             "--model",
@@ -55,11 +75,10 @@ def main() -> None:
             str(args.seed),
             "--class-weighted-loss",
             "--device",
-            "cuda",
+            args.device,
         ]
     )
 
 
 if __name__ == "__main__":
     main()
-

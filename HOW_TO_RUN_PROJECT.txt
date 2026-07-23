@@ -47,6 +47,10 @@ Install dependencies in a fresh environment if needed:
 
     python -m pip install -r requirements_project.txt
 
+Before running the project, check which reproducibility assets are present:
+
+    python verify_project_reproducibility.py
+
 
 1) Run segmentation only
 ------------------------
@@ -54,6 +58,23 @@ This command segments the images in `TMJ_clas` with UNet++ fold 2 and applies th
 fossa threshold 0.95 and top-2 connected components for condyle/fossa.
 
     python main_segmentation.py
+
+Important for a fresh Git clone:
+The default segmentation command performs inference from this trained checkpoint:
+
+    TMJ_clas\unet_runs\unetpp_cv5_boundary_fossa_threshold\fold_02\best_tmj_unetpp_boundary_fossa_threshold.pt
+
+If that checkpoint is not present in the clone, train the segmentation model first and then run inference:
+
+    python main_segmentation.py --train-if-missing
+
+For a shorter smoke/debug run:
+
+    python main_segmentation.py --train-if-missing --train-folds 3 --train-epochs 5
+
+To use another existing UNet++ run directory:
+
+    python main_segmentation.py --seg-run-dir C:\path\to\unetpp_run
 
 Default outputs:
 
@@ -70,6 +91,14 @@ This command uses the old 150-case post-processed segmentation masks by default:
 Command:
 
     python main_resnet14.py
+
+If the historical mask folder is missing in a fresh clone, generate masks first:
+
+    python main_resnet14.py --generate-masks-if-missing
+
+If both masks and UNet++ segmentation checkpoints are missing:
+
+    python main_resnet14.py --generate-masks-if-missing --train-segmentation-if-missing
 
 Default output:
 
@@ -98,6 +127,11 @@ Command:
 
     python main_dinov2.py
 
+If `TMJ_clas_old150_images_for_dinov3` is not present, the launcher falls back to `TMJ_clas`.
+You can also pass a custom dataset:
+
+    python main_dinov2.py --data-dir C:\path\to\dataset
+
 Default output:
 
     C:\Users\sadmin\Desktop\mozo\code_classification\dinov2_tmd_experiment\outputs_dinov2_cv3_reproduce_old150
@@ -115,6 +149,11 @@ Recommended fast version: reuse the saved OOF predictions from ResNet14 and the 
 then apply the validated weighted probability blender.
 
     python main_complete.py
+
+The default tracked CSV already contains both ResNet14 and RF probabilities. If the separate RF
+OOF file is missing, the launcher reuses the RF columns inside:
+
+    best_models\resnet14_plus_tabular_rf\resnet14_rf_blend_oof_predictions.csv
 
 Output:
 
@@ -145,6 +184,7 @@ The tabular RF uses the validated OOF predictions stored here:
     main_resnet14.py
     main_dinov2.py
     main_complete.py
+    verify_project_reproducibility.py
     requirements_project.txt
     requirements_current_environment.txt
     HOW_TO_RUN_PROJECT.txt
