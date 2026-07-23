@@ -60,17 +60,21 @@ fossa threshold 0.95 and top-2 connected components for condyle/fossa.
     python main_segmentation.py
 
 Important for a fresh Git clone:
-The default segmentation command performs inference from this trained checkpoint:
+The segmentation launcher first looks for this trained checkpoint:
 
     TMJ_clas\unet_runs\unetpp_cv5_boundary_fossa_threshold\fold_02\best_tmj_unetpp_boundary_fossa_threshold.pt
 
-If that checkpoint is not present in the clone, train the segmentation model first and then run inference:
+If that checkpoint is not present, `python main_segmentation.py` now trains the UNet++ model automatically,
+then runs inference. This is the default behavior so the project can be relaunched from Git without a
+pre-existing checkpoint folder.
 
-    python main_segmentation.py --train-if-missing
+To force inference-only mode and require an existing checkpoint:
+
+    python main_segmentation.py --no-train-if-missing
 
 For a shorter smoke/debug run:
 
-    python main_segmentation.py --train-if-missing --train-folds 3 --train-epochs 5
+    python main_segmentation.py --train-folds 3 --train-epochs 5
 
 To use another existing UNet++ run directory:
 
@@ -96,9 +100,8 @@ If the historical mask folder is missing in a fresh clone, generate masks first:
 
     python main_resnet14.py --generate-masks-if-missing
 
-If both masks and UNet++ segmentation checkpoints are missing:
-
-    python main_resnet14.py --generate-masks-if-missing --train-segmentation-if-missing
+If both masks and UNet++ segmentation checkpoints are missing, the same command still works:
+`main_segmentation.py` is called internally and trains the segmentation checkpoint automatically.
 
 Default output:
 

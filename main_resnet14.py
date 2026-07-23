@@ -38,7 +38,10 @@ def main() -> None:
     parser.add_argument(
         "--train-segmentation-if-missing",
         action="store_true",
-        help="If segmentation checkpoints are missing while generating masks, train UNet++ first.",
+        help=(
+            "Deprecated compatibility flag. main_segmentation.py now trains UNet++ automatically "
+            "when masks/checkpoints are missing."
+        ),
     )
     args = parser.parse_args()
 
@@ -54,8 +57,7 @@ def main() -> None:
                 f"{args.mask_run_dir}\n\n"
                 "  2) Or let this launcher generate them:\n"
                 "     python main_resnet14.py --generate-masks-if-missing\n\n"
-                "  3) If UNet++ checkpoints are also missing:\n"
-                "     python main_resnet14.py --generate-masks-if-missing --train-segmentation-if-missing\n"
+                "If the UNet++ checkpoint is also missing, main_segmentation.py will train it automatically.\n"
             )
         seg_cmd = [
             sys.executable,

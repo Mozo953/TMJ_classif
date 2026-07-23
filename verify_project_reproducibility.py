@@ -25,7 +25,7 @@ CHECKS = [
     (
         "UNet++ segmentation checkpoint fold 2",
         ROOT / "TMJ_clas" / "unet_runs" / "unetpp_cv5_boundary_fossa_threshold" / "fold_02" / "best_tmj_unetpp_boundary_fossa_threshold.pt",
-        "Optional for fast segmentation inference. If missing, run main_segmentation.py --train-if-missing.",
+        "Optional for fast segmentation inference. If missing, main_segmentation.py trains it automatically by default.",
     ),
     (
         "Tracked ResNet14/RF reference probabilities",
@@ -58,11 +58,11 @@ def main() -> None:
     print("--------------------")
     print("Segmentation only:")
     print("  python main_segmentation.py")
-    print("  python main_segmentation.py --train-if-missing   # if UNet++ checkpoint is missing")
+    print("  python main_segmentation.py --no-train-if-missing   # inference-only, requires an existing checkpoint")
     print()
     print("ResNet14:")
     print("  python main_resnet14.py")
-    print("  python main_resnet14.py --generate-masks-if-missing --train-segmentation-if-missing")
+    print("  python main_resnet14.py --generate-masks-if-missing")
     print()
     print("DINOv2:")
     print("  python main_dinov2.py")

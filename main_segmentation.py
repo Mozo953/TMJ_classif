@@ -29,8 +29,12 @@ def main() -> None:
     parser.add_argument("--fold", type=int, default=2)
     parser.add_argument(
         "--train-if-missing",
-        action="store_true",
-        help="Train the UNet++ boundary/fossa-threshold segmentation model if the checkpoint is missing.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Train the UNet++ boundary/fossa-threshold segmentation model if the checkpoint is missing. "
+            "Enabled by default for fresh Git clones; use --no-train-if-missing for inference-only mode."
+        ),
     )
     parser.add_argument("--train-folds", type=int, default=5)
     parser.add_argument("--train-epochs", type=int, default=50)
